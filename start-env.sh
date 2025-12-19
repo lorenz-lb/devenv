@@ -1,12 +1,18 @@
-#!/bin/bash
+# vars
+IMAGE=$1
+CONTAINER=$2
 
-CONTAINER=$1
-IMAGE=$2
+check_parameter() {
+    if [ -z "$IMAGE" ]; then
+        echo "Please specify parameter 1 (Image Name)"
+        exit 1
+    fi
 
-USER="devuser"
-
-HOST_UID=$(id -u)
-HOST_GID=$(id -g)
+    if [ -z "$CONTAINER" ]; then
+        echo "Using image parameter ('$CONTAINER') as Container Name"
+        CONTAINER=$IMAGE
+    fi
+}
 
 get_status() {
     if podman container inspect $CONTAINER &> /dev/null; then
@@ -16,33 +22,76 @@ get_status() {
     fi
 }
 
-STATUS=$(get_status)
-
-if [ "$STATUS" = "running" ]; then
-    echo "Container '$CONTAINER' already running."
-
-elif [ "$STATUS" = "exited" ]; then
+start_container() {
     echo "Start existing container '$CONTAINER'."
     podman start $CONTAINER
+}
 
-elif [ "$STATUS" = "not_exists" ]; then
-    echo "Create and run new container '$CONTAINER'."
-    podman build -t $IMAGE .
-    podman run -d \
+exec_into_container() {
+    echo "Exec into Container '$CONTAINER'"
+    podman exec -it  $CONTAINER /bin/bash 
+}
+
+create_container() {
+    echo "Creating container '$CONTAINER'"
+    podman create \
         --name $CONTAINER \
-        --volume $HOME/code/src/lorenz-lb.github.io:/home/$USER/workspace:U \
+        --volume "${PWD}":/workspace:Z \
+        --userns=keep-id \
+        --replace \
+        -p 5173:5173 \
         $IMAGE \
         /bin/bash -c "sleep infinity" 
+}
 
-    sleep 3
-    podman exec $CONTAINER chmod -R 777 /home/$USER/workspace
+choose_action() {
+    STATUS=$(get_status)
 
-    if [ $? -ne 0 ]; then
-        echo "Error: Failed to create and run container."
-        exit 1
+    echo "Container status is: '$STATUS'"
+
+    # possible status: 
+        # not_exist
+        # running
+        # exited
+        # created
+    
+    if [ "$STATUS" = "running" ]; then
+        # container running, exec into it
+        echo "Container '$CONTAINER' already running."
+        sleep 1
+        exec_into_container
+
+    elif [ "$STATUS" = "exited" ]; then
+        # start up container then exec into it
+        echo "Container '$CONTAINER' found"
+        start_container
+        sleep 3
+        exec_into_container
+
+    elif [ "$STATUS" = "created" ]; then
+        # start up container then exec into it
+        echo "Container '$CONTAINER' found"
+        start_container
+        sleep 3
+        exec_into_container
+
+    elif [ "$STATUS" = "not_exists" ]; then
+        # no container created, create and run then exec into it
+        echo "No container found, "
+        create_container
+        sleep 3
+        start_container
+        sleep 3
+        exec_into_container
+    else
+        echo "#################### NO OPTION CHOOSEN THIS CANT HAPPEN! ##############################"
     fi
-fi
 
-sleep 1
-podman exec -it --user $USER $CONTAINER /bin/bash 
+}
+
+check_parameter
+
+echo "###### Using '$IMAGE' for container '$CONTAINER' ######"
+
+choose_action
 

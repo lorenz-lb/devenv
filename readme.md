@@ -7,12 +7,10 @@ I use this repo when developing and when I don't want some tools installed on my
 ## usage
 build this image with: 
 ```bash
-podman build -t devenv . 
+podman build -t tmpenv --build-arg HOST_USER=[YOUR USER] .
 ```
 
-and then start the container and map your development directory to the container by executing
+and then start the container with PWD mapped 
 ```bash
-# perhaps remove first
-# podman rm [YOUR_CONTAINTER_NAME] 
-podman run -it --name [YOUR_CONTAINER_NAMER] --volume [YOUR_DIRECTORY_TO_MAP_INTO_ENV]:/home/devuser/workspace devenv
+./start-env.sh tmpenv
 ```

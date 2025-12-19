@@ -1,9 +1,9 @@
 #!/bin/bash
-CONTAINER_NAME=$1
+
 
 echo "STOP CONTAINER"
-podman container stop $CONTAINER_NAME 
+podman container stop devenv-ghpages
 echo "DELETE CONTAINER"
-podman container rm $CONTAINER_NAME 
+podman container rm devenv-ghpages
 #echo "DELETE IMAGE"
-#podman image rm $IMAGE_NAME 
+#podman image rm localhost/devenv-ghpages

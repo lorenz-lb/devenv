@@ -1,41 +1,34 @@
-FROM ubuntu
+FROM debian:bookworm
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV NVIM_INSTALLER_DIR="/opt/nvim"
+ENV PATH="$NVIM_INSTALL_DIR/bin:$PATH"
+ARG HOST_USER=defaultuser
+ENV HOME="/home/$HOST_USER"
+
 
 RUN apt update && \
-    apt install -y git curl python3 python3-pip && \
+    apt install -y git curl sudo python3 python3-pip && \
     apt clean
 
-WORKDIR /tmp
+RUN useradd -m -s /bin/bash $HOST_USER && \
+    echo "$HOST_USER ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 
+# NeoVim installation
 RUN mkdir $NVIM_INSTALLER_DIR && \
     curl -LO https://github.com/neovim/neovim/releases/download/v0.11.4/nvim-linux-x86_64.tar.gz && \
     tar xzvf nvim-linux-x86_64.tar.gz --directory=$NVIM_INSTALLER_DIR --strip-components=1 && \
     ln -s $NVIM_INSTALLER_DIR/bin/nvim /usr/bin/nvim
 
-ENV PATH="$NVIM_INSTALL_DIR/bin:$PATH"
+# load dotfiles
+RUN git clone https://github.com/lorenz-lb/personal_kickstart.nvim.git /home/$HOST_USER/.config/nvim
 
-ARG USERNAME=devuser
-ARG USER_UID=1000
-ARG USER_GID=1000
+RUN chown -R $HOST_USER:$HOST_USER /home/$HOST_USER
 
-# delete user if exists
-RUN if getent passwd $USER_UID ; then \
-        USER_TO_DEL=$(getent passwd $USER_UID | cut -d: -f1) ; \
-        echo "Removing conflicting user $USER_TO_DEL" ; \
-        userdel --remove $USER_TO_DEL || true; \
-    fi
+WORKDIR /workspace 
 
-RUN groupadd -g $USER_GID $USERNAME || true && \
-    useradd -s /bin/bash --uid $USER_UID --gid $USER_GID -m $USERNAME
+# rust for Wasm  
+#RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+#ENV PATH="$PATH:$HOME/.cargo/bin"
 
-WORKDIR /home/$USERNAME
-USER $USERNAME
-
-# clone dotfiles for custom settings
-RUN git clone https://github.com/lorenz-lb/personal_kickstart.nvim.git /home/$USERNAME/.config/nvim
-
-RUN mkdir /home/$USERNAME/workspace
-
-CMD ["/bin/bash"]
+CMD ["sleep", "infinity"]
