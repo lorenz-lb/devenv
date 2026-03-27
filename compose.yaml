@@ -1,0 +1,14 @@
+services:
+  dev:
+    build:
+      context: .
+      target: python
+
+    userns_mode: keep-id
+
+    working_dir: /workspace
+    volumes:
+      - .:/workspace
+
+    tty: true
+    stdin_open: true

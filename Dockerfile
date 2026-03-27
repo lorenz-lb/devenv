@@ -1,41 +1,48 @@
-FROM ubuntu
+# =========================
+# BASE
+# =========================
+FROM ubuntu:24.04 AS base
 
 ENV DEBIAN_FRONTEND=noninteractive
-ENV NVIM_INSTALLER_DIR="/opt/nvim"
+ENV NVIM_INSTALL_DIR=/opt/nvim
+ENV XDG_CONFIG_HOME=/opt/xdg
 
 RUN apt update && \
-    apt install -y git curl python3 python3-pip && \
-    apt clean
+    apt install -y \
+      git \
+      curl \
+      ca-certificates \
+      tar \
+      gzip \
+      unzip \
+      build-essential \
+      && apt clean && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /tmp
+# install latest neovim (no apt)
+RUN curl -LO https://github.com/neovim/neovim/releases/download/v0.11.4/nvim-linux-x86_64.tar.gz && \
+    mkdir -p "$NVIM_INSTALL_DIR" && \
+    tar xzf nvim-linux-x86_64.tar.gz --directory="$NVIM_INSTALL_DIR" --strip-components=1 && \
+    ln -s "$NVIM_INSTALL_DIR/bin/nvim" /usr/local/bin/nvim && \
+    rm nvim-linux-x86_64.tar.gz
 
-RUN mkdir $NVIM_INSTALLER_DIR && \
-    curl -LO https://github.com/neovim/neovim/releases/download/v0.11.4/nvim-linux-x86_64.tar.gz && \
-    tar xzvf nvim-linux-x86_64.tar.gz --directory=$NVIM_INSTALLER_DIR --strip-components=1 && \
-    ln -s $NVIM_INSTALLER_DIR/bin/nvim /usr/bin/nvim
+RUN mkdir -p "$XDG_CONFIG_HOME" && \
+    git clone https://github.com/lorenz-lb/personal_kickstart.nvim.git "$XDG_CONFIG_HOME/nvim" && \
+    chmod -R 777 "$XDG_CONFIG_HOME/nvim"
 
-ENV PATH="$NVIM_INSTALL_DIR/bin:$PATH"
 
-ARG USERNAME=devuser
-ARG USER_UID=1000
-ARG USER_GID=1000
+# workspace
+WORKDIR /workspace
 
-# delete user if exists
-RUN if getent passwd $USER_UID ; then \
-        USER_TO_DEL=$(getent passwd $USER_UID | cut -d: -f1) ; \
-        echo "Removing conflicting user $USER_TO_DEL" ; \
-        userdel --remove $USER_TO_DEL || true; \
-    fi
+CMD ["sleep", "infinity"]
 
-RUN groupadd -g $USER_GID $USERNAME || true && \
-    useradd -s /bin/bash --uid $USER_UID --gid $USER_GID -m $USERNAME
+# =========================
+# PYTHON
+# =========================
+FROM base AS python
 
-WORKDIR /home/$USERNAME
-USER $USERNAME
-
-# clone dotfiles for custom settings
-RUN git clone https://github.com/lorenz-lb/personal_kickstart.nvim.git /home/$USERNAME/.config/nvim
-
-RUN mkdir /home/$USERNAME/workspace
-
-CMD ["/bin/bash"]
+RUN apt update && \
+    apt install -y \
+      python3 \
+      python3-pip \
+      python3-venv \
+      && apt clean && rm -rf /var/lib/apt/lists/*
