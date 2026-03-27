@@ -14,4 +14,3 @@ and enter the container with:
 ```bash
 podman compose exec dev bash
 ```
-
